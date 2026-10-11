@@ -31,7 +31,7 @@ Ongoing videography and content production for schools and colleges.
 
 🎬 [Videography](./videography/)
 📱 [Social Media](./social-media/)
-🏢 [Brand Projects](./projects/brand-projects/)
+🏢 [projects/brands](./projects/brand-projects/)
 🏫 [Institutional Projects](./projects/school-projects/)
 🏆 [Achievements](./achievements/)
 
