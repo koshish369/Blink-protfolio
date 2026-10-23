@@ -2,7 +2,7 @@
 
 Date: 2026-10-21
 Owner: Sanket Koirala (Blink Media Tech, Biratnagar)
-Status: Draft, waiting for Sanket's review
+Status: Approved by Sanket (2026-10-23)
 
 ## 1. What Namya AI is
 
@@ -163,3 +163,21 @@ One spreadsheet, "Namya Memory":
 - Phase 4: voice notes in and out, phone receptionist.
 - Phase 5: social media (Notion content calendar, captions, scheduled posts).
 - Later: package Namya for other offices.
+
+## 11. Vision (agreed 2026-10-23, not part of Phase 1)
+
+One Namya "brain" (memory, messaging, handoff rules, actions) with two modes:
+
+| | Office mode (receptionist) | Personal mode (PA) |
+|---|---|---|
+| Works for | An office | One person |
+| Faces | Clients, the outside world | The owner's own work and life |
+| Main job | Answer, collect details, route to staff | Plan, remind, act for the owner |
+| Approver | The office's handoff person | The owner |
+
+Order: Blink receptionist (now), then Sanket's own PA as the second test,
+then paid pilots with one office type (agencies first), then expand.
+
+Guardrails: tax and accounts are "prepare and remind" only, a human signs
+off. Proof before selling: hours saved, reply speed, leads not forgotten,
+share of drafts used after two months at Blink.
