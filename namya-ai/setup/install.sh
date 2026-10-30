@@ -62,6 +62,9 @@ services:
       GENERIC_TIMEZONE: Asia/Kathmandu
       TZ: Asia/Kathmandu
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      # Safari refuses n8n's secure cookie on http://localhost. n8n only
+      # listens on this Mac (127.0.0.1), so the plain cookie is safe here.
+      N8N_SECURE_COOKIE: "false"
     volumes:
       - n8n_data:/home/node/.n8n
 
