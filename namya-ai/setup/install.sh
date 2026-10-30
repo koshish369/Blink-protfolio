@@ -48,6 +48,9 @@ services:
       WHATSAPP_SWAGGER_USERNAME: ${WAHA_DASHBOARD_USERNAME}
       WHATSAPP_SWAGGER_PASSWORD: ${WAHA_DASHBOARD_PASSWORD}
       WHATSAPP_DEFAULT_ENGINE: WEBJS
+      # Send every new message to the Namya workflow in n8n (same Mac).
+      WHATSAPP_HOOK_URL: http://n8n:5678/webhook/waha
+      WHATSAPP_HOOK_EVENTS: message.any
       TZ: Asia/Kathmandu
     volumes:
       - waha_sessions:/app/.sessions

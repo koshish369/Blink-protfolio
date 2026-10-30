@@ -1,0 +1,79 @@
+{
+  "name": "Namya - save group messages",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "waha",
+        "options": {}
+      },
+      "id": "a1f0c6e2-1111-4c1a-9a01-000000000001",
+      "name": "WAHA message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "5d3a7f0e-2222-4b7c-8e11-000000000002"
+    },
+    {
+      "parameters": {
+        "jsCode": "// n8n Code node: keep only WhatsApp group messages from WAHA and reshape them\n// for the Namya Memory sheet. Everything else (private chats, status, other\n// events) is dropped.\nconst out = [];\nfor (const item of $input.all()) {\n  const body = item.json.body || item.json;\n  if (body.event !== 'message.any' && body.event !== 'message') continue;\n  const p = body.payload || {};\n  const chat = p.fromMe ? (p.to || '') : (p.from || '');\n  if (!chat.endsWith('@g.us')) continue;\n  const name = (p._data && p._data.notifyName) || '';\n  out.push({\n    json: {\n      time: p.timestamp || Math.floor(Date.now() / 1000),\n      groupId: chat,\n      sender: p.fromMe ? 'Namya' : (name || p.participant || p.author || ''),\n      text: p.body || '',\n      hasFile: !!p.hasMedia,\n    },\n  });\n}\nreturn out;\n"
+      },
+      "id": "a1f0c6e2-1111-4c1a-9a01-000000000003",
+      "name": "Keep group messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "PASTE_SHEET_SCRIPT_URL_HERE",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "a1f0c6e2-1111-4c1a-9a01-000000000004",
+      "name": "Save to Namya Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "WAHA message": {
+      "main": [
+        [
+          {
+            "node": "Keep group messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep group messages": {
+      "main": [
+        [
+          {
+            "node": "Save to Namya Memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
