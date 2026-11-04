@@ -68,6 +68,15 @@ services:
       # Safari refuses n8n's secure cookie on http://localhost. n8n only
       # listens on this Mac (127.0.0.1), so the plain cookie is safe here.
       N8N_SECURE_COOKIE: "false"
+      # Namya settings, filled in by namya-settings.sh.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
+      NAMYA_SHEET_URL: ${NAMYA_SHEET_URL:-}
+      NAMYA_KEY: ${NAMYA_KEY:-}
+      NAMYA_SUNIL_NUMBER: ${NAMYA_SUNIL_NUMBER:-}
+      NAMYA_WAHA_SESSION: ${NAMYA_WAHA_SESSION:-001}
+      NAMYA_TEST_MODE: ${NAMYA_TEST_MODE:-true}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      WAHA_API_KEY: ${WAHA_API_KEY}
     volumes:
       - n8n_data:/home/node/.n8n
 
