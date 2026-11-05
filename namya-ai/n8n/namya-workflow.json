@@ -1,0 +1,290 @@
+{
+  "name": "Namya",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "waha",
+        "options": {}
+      },
+      "id": "b2c0e6e2-0000-4000-8000-000000000001",
+      "name": "WAHA message",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "5d3a7f0e-2222-4b7c-8e11-000000000002"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Namya settings. Values come from the Mac mini's ~/namya/.env file,\n// filled in by setup/namya-settings.sh, so nothing needs editing here.\nlet env = {};\ntry { env = $env || {}; } catch (e) { env = {}; }\nconst SETTINGS = {\n  sheetUrl: env.NAMYA_SHEET_URL || '',\n  sheetKey: env.NAMYA_KEY || '',\n  sunilNumber: env.NAMYA_SUNIL_NUMBER || '',\n  wahaSession: env.NAMYA_WAHA_SESSION || '001',\n  testMode: String(env.NAMYA_TEST_MODE || 'true') === 'true', // true: team messages also get drafts\n  team: String(env.NAMYA_TEAM || 'Sunil,Sanket').split(',').map((s) => s.trim()).filter(Boolean),\n};\nif (!SETTINGS.sheetUrl || !SETTINGS.sheetKey) {\n  throw new Error('Namya settings missing: run namya-settings.sh on the Mac mini');\n}\nreturn $input.all().map((item) => ({\n  json: { ...SETTINGS, wahaUrl: 'http://waha:3000', body: item.json.body || item.json },\n}));\n"
+      },
+      "id": "b2c0e6e2-0000-4000-8000-000000000002",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keep only WhatsApp group messages from WAHA and reshape them for Namya.\n// Everything else (private chats, status, other events) is dropped.\nconst out = [];\nfor (const item of $input.all()) {\n  const { body, ...settings } = item.json;\n  const b = body || {};\n  if (b.event !== 'message.any' && b.event !== 'message') continue;\n  const p = b.payload || {};\n  const chat = p.fromMe ? (p.to || '') : (p.from || '');\n  if (!chat.endsWith('@g.us')) continue;\n  const name = (p._data && p._data.notifyName) || '';\n  out.push({\n    json: {\n      ...settings,\n      time: p.timestamp || Math.floor(Date.now() / 1000),\n      groupId: chat,\n      sender: p.fromMe ? 'Namya' : (name || p.participant || p.author || ''),\n      text: p.body || '',\n      hasFile: !!p.hasMedia,\n      fromMe: !!p.fromMe,\n    },\n  });\n}\nreturn out;\n"
+      },
+      "id": "b2c0e6e2-0000-4000-8000-000000000003",
+      "name": "Keep group messages",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.sheetUrl }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ key: $json.sheetKey, time: $json.time, groupId: $json.groupId, sender: $json.sender, text: $json.text, hasFile: $json.hasFile }) }}",
+        "options": {}
+      },
+      "id": "b2c0e6e2-0000-4000-8000-000000000010",
+      "name": "Save to Namya Memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        680,
+        -120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Free rule check (no AI): does this message need the team's attention?\n// danger = money, complaints, contracts: Sunil gets an alert, never a draft.\nconst ASK = /\\?|\\b(price|rate|cost|charge|quote|package|ready|done|when|deadline|date|time|schedule|shoot|video|edit|reel|post|file|send|link|drive|status|update|meeting|call|blink|namya|please|plz|help|kati|kahile|kaile|kun|kasari|milcha|mildaina|pathau|pathaunu|garnu|chahiyo|kya|kab|kitna|kaise|kripya|bhejo)\\b/i;\nconst ASK_NP = /(कति|कहिले|कसरी|कुन|मूल्य|भिडियो|पठाउ|कृपया|कब|कितना|कैसे)/;\nconst DANGER = /\\b(pay|paid|payment|refund|discount|advance|invoice|bill|money|paisa|rupees?|npr|rs|contract|agreement|legal|lawyer|complain|complaint|angry|worst|disappointed|unhappy|cancel|delay|late|wrong|problem|issue|gunaso|bhuktani|chhut|naramro)\\b/i;\nconst DANGER_NP = /(पैसा|भुक्तानी|छुट|रकम|सम्झौता|गुनासो|नराम्रो|ढिला|रद्द|शिकायत)/;\n\nconst out = [];\nfor (const item of $input.all()) {\n  const m = item.json;\n  if (m.fromMe) continue;\n  const sender = String(m.sender || '').toLowerCase();\n  const isTeam = (m.team || []).some((n) => n && sender.includes(String(n).toLowerCase()));\n  if (isTeam && !m.testMode) continue;\n  const text = String(m.text || '').trim();\n  if (!text && !m.hasFile) continue;\n  const danger = DANGER.test(text) || DANGER_NP.test(text);\n  if (!(m.hasFile || danger || ASK.test(text) || ASK_NP.test(text))) continue;\n  out.push({ json: { ...m, text, danger } });\n}\nreturn out;\n"
+      },
+      "id": "b2c0e6e2-0000-4000-8000-000000000005",
+      "name": "Needs reply?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.sheetUrl }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "key",
+              "value": "={{ $json.sheetKey }}"
+            },
+            {
+              "name": "groupId",
+              "value": "={{ $json.groupId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "b2c0e6e2-0000-4000-8000-000000000011",
+      "name": "Get group memory",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        220
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build the Claude request from the new message plus the group's memory.\nconst SYSTEM = `You are Namya, the front-office assistant for Blink Media Tech, a media production and digital marketing agency in Biratnagar, Nepal (videography, promotional videos, social media management, digital marketing, school and college media).\n\nYou read one new message from a client WhatsApp group and decide what the Blink team should do. A human (Sunil) reviews everything you write before any client sees it.\n\nChoose one action:\n- \"draft\": you can answer safely using only the information given. Write the reply.\n- \"needs_human\": the message involves money (payments, advances, invoices, discounts, refunds), a price for custom work or anything not in the price list, a complaint or an unhappy client, contracts or legal promises, physical tasks, or you are not sure. Do not draft. Say briefly why in \"reason\".\n- \"no_reply\": the message needs no answer (greetings, \"ok\", \"thanks\", emojis, team members talking to each other).\n\nRules for drafts:\n- Reply in the same language and script the client used: Nepali (Devanagari), Romanised Nepali, Hindi or English.\n- Sound like a friendly, professional Blink Media team member. WhatsApp style, 1 to 4 short sentences. No hashtags.\n- Only quote prices that appear in the price list. Never invent prices, dates, deadlines, file links or promises. If the answer depends on facts you do not have, say the team will check and confirm soon.\n- Use the group notes and recent messages to understand who the client is, what was promised and what is pending.\n- Follow-up tone: firmer for clients in Nepal, India and the rest of Asia, Africa and North America; softer for Australia and Europe.\n\nAnswer with only a JSON object and nothing else:\n{\"action\": \"draft\" or \"needs_human\" or \"no_reply\", \"reason\": \"one short sentence for Sunil\", \"reply\": \"the draft reply, or empty\"}`;\n\nconst originals = $('Needs reply?').all();\nreturn $input.all().map((item, i) => {\n  const m = originals[i].json;\n  const mem = (item.json && item.json.ok) ? item.json : {};\n  const prices = (mem.prices || []).map((p) => `- ${p.package}: ${p.includes} | NPR ${p.priceNpr}${p.notes ? ' | ' + p.notes : ''}`);\n  const recent = (mem.recent || []).map((r) => `${r.sender}: ${r.text}`);\n  const groupName = mem.groupName || 'Unknown group';\n  const user = [\n    `Group: ${groupName} | Project: ${mem.project || 'unknown'} | Region: ${mem.region || 'unknown'}`,\n    `Group notes: ${mem.notes || '(none yet)'}`,\n    `Price list:\\n${prices.length ? prices.join('\\n') : '(empty: do not quote any price)'}`,\n    `Recent messages, oldest first:\\n${recent.length ? recent.join('\\n') : '(none)'}`,\n    `New message from ${m.sender}: \"${m.text}\"${m.hasFile ? ' (the client also sent a file)' : ''}`,\n    `Safety check found money, complaint or contract words: ${m.danger ? 'yes' : 'no'}`,\n  ].join('\\n\\n');\n  return {\n    json: {\n      ...m,\n      groupName,\n      request: {\n        model: 'claude-haiku-5-5',\n        max_tokens: 800,\n        output_config: { effort: 'low' },\n        system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],\n        messages: [{ role: 'user', content: user }],\n      },\n    },\n  };\n});\n"
+      },
+      "id": "b2c0e6e2-0000-4000-8000-000000000006",
+      "name": "Build prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{ $env.ANTHROPIC_API_KEY }}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.request) }}",
+        "options": {}
+      },
+      "id": "b2c0e6e2-0000-4000-8000-000000000012",
+      "name": "Ask Claude",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        220
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Turn Claude's answer into a private WhatsApp message for Sunil.\n// Anything unclear, or any AI error, becomes a \"Needs you\" alert.\nconst originals = $('Build prompt').all();\nconst out = [];\n$input.all().forEach((item, i) => {\n  const m = originals[i].json;\n  const num = String(m.sunilNumber || '').replace(/\\D/g, '');\n  if (!/^\\d{8,15}$/.test(num)) throw new Error('Set sunilNumber in the Settings box first');\n  const resp = item.json || {};\n  const text = Array.isArray(resp.content)\n    ? resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('')\n    : '';\n  let r = null;\n  try { r = JSON.parse((text.match(/\\{[\\s\\S]*\\}/) || [''])[0]); } catch (e) { r = null; }\n  if (!r || resp.stop_reason === 'refusal' || !['draft', 'needs_human', 'no_reply'].includes(r.action)) {\n    r = { action: 'needs_human', reason: 'Namya could not draft this one (AI error), please check.', reply: '' };\n  }\n  if (m.danger && r.action !== 'needs_human') {\n    r = { action: 'needs_human', reason: r.reason || 'Money, complaint or contract topic.', reply: '' };\n  }\n  if (r.action === 'draft' && !String(r.reply || '').trim()) {\n    r = { action: 'needs_human', reason: 'Namya had no safe reply.', reply: '' };\n  }\n  if (r.action === 'no_reply') return;\n  const said = String(m.text || '(file)').slice(0, 500);\n  const head = `*${m.groupName}*\\nFrom ${m.sender}: \"${said}\"`;\n  const message = r.action === 'draft'\n    ? `📝 Draft reply for ${head}\\n\\nSuggested reply:\\n${r.reply}\\n\\n(Copy it into the group if it is OK, or edit it first.)`\n    : `⚠️ Needs you: ${head}\\n\\nWhy: ${r.reason}\\n\\nNamya has not drafted a reply.`;\n  out.push({ json: { wahaUrl: m.wahaUrl, session: m.wahaSession, chatId: `${num}@c.us`, message } });\n});\nreturn out;\n"
+      },
+      "id": "b2c0e6e2-0000-4000-8000-000000000007",
+      "name": "Make message for Sunil",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1560,
+        220
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.wahaUrl }}/api/sendText",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ session: $json.session, chatId: $json.chatId, text: $json.message }) }}",
+        "options": {},
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Api-Key",
+              "value": "={{ $env.WAHA_API_KEY }}"
+            }
+          ]
+        }
+      },
+      "id": "b2c0e6e2-0000-4000-8000-000000000013",
+      "name": "Send to Sunil",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1780,
+        220
+      ]
+    }
+  ],
+  "connections": {
+    "WAHA message": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Keep group messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Keep group messages": {
+      "main": [
+        [
+          {
+            "node": "Save to Namya Memory",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Needs reply?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs reply?": {
+      "main": [
+        [
+          {
+            "node": "Get group memory",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get group memory": {
+      "main": [
+        [
+          {
+            "node": "Build prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build prompt": {
+      "main": [
+        [
+          {
+            "node": "Ask Claude",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ask Claude": {
+      "main": [
+        [
+          {
+            "node": "Make message for Sunil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make message for Sunil": {
+      "main": [
+        [
+          {
+            "node": "Send to Sunil",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
