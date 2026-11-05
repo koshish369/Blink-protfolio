@@ -20,7 +20,12 @@ ask() {
   local var="$1" question="$2" pattern="$3" hint="$4" val
   while true; do
     printf '\n%s\n> ' "$question"
-    IFS= read -r -u 3 val || { echo; echo "Stopped."; exit 1; }
+    if [ "$var" = "NAMYA_KEY" ] || [ "$var" = "ANTHROPIC_API_KEY" ]; then
+      IFS= read -r -s -u 3 val || { echo; echo "Stopped."; exit 1; }
+      echo "(hidden)"
+    else
+      IFS= read -r -u 3 val || { echo; echo "Stopped."; exit 1; }
+    fi
     val="$(printf '%s' "$val" | tr -d '[:space:]')"
     if [ "$var" = "NAMYA_SUNIL_NUMBER" ]; then val="$(printf '%s' "$val" | tr -cd '0-9')"; fi
     if [[ "$val" == *"'"* ]]; then echo "Please don't use the ' character."; continue; fi
